@@ -50,12 +50,11 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (context) => TaskList(),
       child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'To-Do List by Prachi D22IT212', // App title
+        title: 'To-Do App',
+        debugShowCheckedModeBanner: false,// App title
         theme: ThemeData(
           primarySwatch: Colors.blue, // Theme color
         ),
-        // Remove debug banner
         home: LoginPage(), // Starting screen of the app
       ),
     );
@@ -269,7 +268,7 @@ class TaskListScreen extends StatelessWidget {
     // Building the screen layout
     return Scaffold(
       appBar: AppBar(
-        title: Text('To-Do App'), // AppBar title
+        title: Text('To-Do APP'), // AppBar title
       ),
       body: ListView.builder(
         itemCount: taskList.tasks.length, // Number of tasks
