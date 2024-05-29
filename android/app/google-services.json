@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "1035025686458",
-    "project_id": "to-do-6f306",
-    "storage_bucket": "to-do-6f306.appspot.com"
+    "project_number": "1028974052224",
+    "project_id": "to-do-7c69d",
+    "storage_bucket": "to-do-7c69d.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1035025686458:android:a889049adcefc905d08783",
+        "mobilesdk_app_id": "1:1028974052224:android:dc5a5a89aa774e21823765",
         "android_client_info": {
-          "package_name": "com.example.to_do"
+          "package_name": "com.example.internship"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBsmwvAOi9vj5TGK44YBurOHpegC6tmts0"
+          "current_key": "AIzaSyDcvLsdUEbkgVp-NS_5v_8UQz2yhAkkLjA"
         }
       ],
       "services": {

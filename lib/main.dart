@@ -1,44 +1,44 @@
-// Importing necessary packages
 import 'package:flutter/material.dart';
+import 'package:internship/firebase_options.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 // Main function to run the app
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(MyApp());
 }
 
 // Definition of a Task class
 class Task {
-  String name; // Name of the task
-  bool isCompleted; // Completion status of the task
+  String name;
+  bool isCompleted;
 
-  // Constructor with an optional named parameter
   Task(this.name, {this.isCompleted = false});
 }
 
 // Definition of TaskList class which extends ChangeNotifier
 class TaskList extends ChangeNotifier {
-  List<Task> _tasks = []; // List to hold tasks
+  List<Task> _tasks = [];
 
-  // Getter for accessing the tasks list
   List<Task> get tasks => _tasks;
 
-  // Method to add a task
   void addTask(String name) {
     _tasks.add(Task(name));
-    notifyListeners(); // Notify listeners (widgets) about the change
+    notifyListeners();
   }
 
-  // Method to toggle task completion status
   void toggleTaskCompletion(int index) {
     _tasks[index].isCompleted = !_tasks[index].isCompleted;
-    notifyListeners(); // Notify listeners about the change
+    notifyListeners();
   }
 
-  // Method to delete a task
   void deleteTask(int index) {
     _tasks.removeAt(index);
-    notifyListeners(); // Notify listeners about the change
+    notifyListeners();
   }
 }
 
@@ -46,17 +46,35 @@ class TaskList extends ChangeNotifier {
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    // Providing TaskList to the widget tree
     return ChangeNotifierProvider(
       create: (context) => TaskList(),
       child: MaterialApp(
         title: 'To-Do App',
-        debugShowCheckedModeBanner: false,// App title
+        debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          primarySwatch: Colors.blue, // Theme color
+          primarySwatch: Colors.blue,
         ),
-        home: LoginPage(), // Starting screen of the app
+        home: AuthWrapper(),
       ),
+    );
+  }
+}
+
+// Wrapper to show different screens based on authentication status
+class AuthWrapper extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasData) {
+          return TaskListScreen();
+        }
+        return LoginPage();
+      },
     );
   }
 }
@@ -72,22 +90,23 @@ class _LoginPageState extends State<LoginPage> {
   String _email = '';
   String _password = '';
 
-  // Dummy credentials
-  final Map<String, String> _registeredUsers = {};
-
-  void _login() {
+  void _login() async {
     if (_formKey.currentState?.validate() ?? false) {
       _formKey.currentState?.save();
-      if (_registeredUsers[_email] == _password) {
+      try {
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: _email,
+          password: _password,
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Login Successful')),
         );
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => TaskListScreen()),
         );
-      } else {
+      } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Invalid email or password')),
+          SnackBar(content: Text('Failed to sign in: ${e.toString()}')),
         );
       }
     }
@@ -95,7 +114,7 @@ class _LoginPageState extends State<LoginPage> {
 
   void _navigateToRegistration() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => RegistrationPage(_registeredUsers)),
+      MaterialPageRoute(builder: (context) => RegistrationPage()),
     );
   }
 
@@ -156,10 +175,6 @@ class _LoginPageState extends State<LoginPage> {
 
 // Registration page widget
 class RegistrationPage extends StatefulWidget {
-  final Map<String, String> registeredUsers;
-
-  RegistrationPage(this.registeredUsers);
-
   @override
   _RegistrationPageState createState() => _RegistrationPageState();
 }
@@ -170,19 +185,22 @@ class _RegistrationPageState extends State<RegistrationPage> {
   String _password = '';
   String _confirmPassword = '';
 
-  void _register() {
+  void _register() async {
     if (_formKey.currentState?.validate() ?? false) {
       _formKey.currentState?.save();
       if (_password == _confirmPassword) {
-        if (!widget.registeredUsers.containsKey(_email)) {
-          widget.registeredUsers[_email] = _password;
+        try {
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
+            email: _email,
+            password: _password,
+          );
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Registration Successful')),
           );
           Navigator.of(context).pop();
-        } else {
+        } catch (e) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Email already registered')),
+            SnackBar(content: Text('Failed to register: ${e.toString()}')),
           );
         }
       } else {
@@ -259,27 +277,26 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
 // Definition of the screen widget displaying the task list
 class TaskListScreen extends StatelessWidget {
-  final TextEditingController _controller = TextEditingController(); // Controller for text input
+  final TextEditingController _controller = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
-    final taskList = Provider.of<TaskList>(context); // Accessing TaskList from the context
+    final taskList = Provider.of<TaskList>(context);
 
-    // Building the screen layout
     return Scaffold(
       appBar: AppBar(
-        title: Text('To-Do APP'), // AppBar title
+        title: Text('To-Do APP'),
       ),
       body: ListView.builder(
-        itemCount: taskList.tasks.length, // Number of tasks
+        itemCount: taskList.tasks.length,
         itemBuilder: (context, index) {
-          final task = taskList.tasks[index]; // Getting a task
+          final task = taskList.tasks[index];
           return ListTile(
-            title: Text(task.name), // Displaying task name
+            title: Text(task.name),
             leading: Checkbox(
-              value: task.isCompleted, // Checkbox value based on task completion status
+              value: task.isCompleted,
               onChanged: (newValue) {
-                taskList.toggleTaskCompletion(index); // Toggling task completion
+                taskList.toggleTaskCompletion(index);
               },
             ),
             trailing: Row(
@@ -288,7 +305,6 @@ class TaskListScreen extends StatelessWidget {
                 IconButton(
                   icon: Icon(Icons.edit),
                   onPressed: () {
-                    // Show a dialog to edit the task
                     showDialog(
                       context: context,
                       builder: (BuildContext context) {
@@ -326,9 +342,9 @@ class TaskListScreen extends StatelessWidget {
                   },
                 ),
                 IconButton(
-                  icon: Icon(Icons.delete), // Delete icon
+                  icon: Icon(Icons.delete),
                   onPressed: () {
-                    taskList.deleteTask(index); // Deleting the task
+                    taskList.deleteTask(index);
                   },
                 ),
               ],
@@ -337,9 +353,8 @@ class TaskListScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        child: Icon(Icons.add), // Icon for the floating button
+        child: Icon(Icons.add),
         onPressed: () {
-          // Show a dialog to add a new task
           showDialog(
             context: context,
             builder: (BuildContext context) {
