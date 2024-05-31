@@ -286,6 +286,17 @@ class TaskListScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('To-Do APP'),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.logout),
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (context) => LoginPage()),
+                );
+              },
+            ),
+          ]
       ),
       body: ListView.builder(
         itemCount: taskList.tasks.length,
