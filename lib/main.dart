@@ -3,40 +3,69 @@ import 'package:internship/firebase_options.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Main function to run the app
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // await Firebase.initializeApp();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(MyApp());
 }
 
 // Definition of a Task class
 class Task {
+  String id;
   String name;
   bool isCompleted;
 
-  Task(this.name, {this.isCompleted = false});
+  Task(this.name, {this.isCompleted = false, this.id = ''});
 }
 
 // Definition of TaskList class which extends ChangeNotifier
 class TaskList extends ChangeNotifier {
   List<Task> _tasks = [];
+  final String userId;
+  final CollectionReference tasksCollection;
+
+  TaskList(this.userId)
+      : tasksCollection =
+  FirebaseFirestore.instance.collection('users').doc(userId).collection('tasks');
 
   List<Task> get tasks => _tasks;
 
-  void addTask(String name) {
-    _tasks.add(Task(name));
+  Future<void> fetchTasks() async {
+    final snapshot = await tasksCollection.get();
+    _tasks = snapshot.docs.map((doc) => Task(
+      doc['name'],
+      isCompleted: doc['isCompleted'],
+      id: doc.id,
+    )).toList();
     notifyListeners();
   }
 
-  void toggleTaskCompletion(int index) {
-    _tasks[index].isCompleted = !_tasks[index].isCompleted;
+  Future<void> addTask(String name) async {
+    final newTask = Task(name);
+    final docRef = await tasksCollection.add({
+      'name': newTask.name,
+      'isCompleted': newTask.isCompleted,
+    });
+    newTask.id = docRef.id;
+    _tasks.add(newTask);
     notifyListeners();
   }
 
-  void deleteTask(int index) {
+  Future<void> toggleTaskCompletion(int index) async {
+    final task = _tasks[index];
+    task.isCompleted = !task.isCompleted;
+    await tasksCollection.doc(task.id).update({
+      'isCompleted': task.isCompleted,
+    });
+    notifyListeners();
+  }
+
+  Future<void> deleteTask(int index) async {
+    final task = _tasks[index];
+    await tasksCollection.doc(task.id).delete();
     _tasks.removeAt(index);
     notifyListeners();
   }
@@ -46,16 +75,13 @@ class TaskList extends ChangeNotifier {
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => TaskList(),
-      child: MaterialApp(
-        title: 'To-Do App',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-        ),
-        home: AuthWrapper(),
+    return MaterialApp(
+      title: 'To-Do App',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
       ),
+      home: AuthWrapper(),
     );
   }
 }
@@ -71,7 +97,10 @@ class AuthWrapper extends StatelessWidget {
           return Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasData) {
-          return TaskListScreen();
+          return ChangeNotifierProvider(
+            create: (_) => TaskList(snapshot.data!.uid),
+            child: TaskListScreen(),
+          );
         }
         return LoginPage();
       },
@@ -286,80 +315,88 @@ class TaskListScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('To-Do APP'),
-          actions: [
-            IconButton(
-              icon: Icon(Icons.logout),
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (context) => LoginPage()),
-                );
-              },
-            ),
-          ]
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => LoginPage()),
+              );
+            },
+          ),
+        ],
       ),
-      body: ListView.builder(
-        itemCount: taskList.tasks.length,
-        itemBuilder: (context, index) {
-          final task = taskList.tasks[index];
-          return ListTile(
-            title: Text(task.name),
-            leading: Checkbox(
-              value: task.isCompleted,
-              onChanged: (newValue) {
-                taskList.toggleTaskCompletion(index);
-              },
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: Icon(Icons.edit),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return AlertDialog(
-                          title: Text('Edit Task'),
-                          content: TextField(
-                            controller: _controller,
-                            decoration: InputDecoration(
-                              hintText: 'Edit task name',
-                            ),
-                          ),
-                          actions: <Widget>[
-                            TextButton(
-                              child: Text('Cancel'),
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                              },
-                            ),
-                            TextButton(
-                              child: Text('Save'),
-                              onPressed: () {
-                                final editedTaskName = _controller.text.trim();
-                                if (editedTaskName.isNotEmpty) {
-                                  taskList.tasks[index].name = editedTaskName;
-                                  taskList.notifyListeners();
-                                }
-                                Navigator.of(context).pop();
-                                _controller.clear();
-                              },
-                            ),
-                          ],
+      body: FutureBuilder(
+        future: taskList.fetchTasks(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          }
+          return ListView.builder(
+            itemCount: taskList.tasks.length,
+            itemBuilder: (context, index) {
+              final task = taskList.tasks[index];
+              return ListTile(
+                title: Text(task.name),
+                leading: Checkbox(
+                  value: task.isCompleted,
+                  onChanged: (newValue) {
+                    taskList.toggleTaskCompletion(index);
+                  },
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.edit),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              title: Text('Edit Task'),
+                              content: TextField(
+                                controller: _controller,
+                                decoration: InputDecoration(
+                                  hintText: 'Edit task name',
+                                ),
+                              ),
+                              actions: <Widget>[
+                                TextButton(
+                                  child: Text('Cancel'),
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                ),
+                                TextButton(
+                                  child: Text('Save'),
+                                  onPressed: () {
+                                    final editedTaskName = _controller.text.trim();
+                                    if (editedTaskName.isNotEmpty) {
+                                      taskList.tasks[index].name = editedTaskName;
+                                      taskList.notifyListeners();
+                                    }
+                                    Navigator.of(context).pop();
+                                    _controller.clear();
+                                  },
+                                ),
+                              ],
+                            );
+                          },
                         );
                       },
-                    );
-                  },
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.delete),
+                      onPressed: () {
+                        taskList.deleteTask(index);
+                      },
+                    ),
+                  ],
                 ),
-                IconButton(
-                  icon: Icon(Icons.delete),
-                  onPressed: () {
-                    taskList.deleteTask(index);
-                  },
-                ),
-              ],
-            ),
+              );
+            },
           );
         },
       ),
