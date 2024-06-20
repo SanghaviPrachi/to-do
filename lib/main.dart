@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:internship/firebase_options.dart';
-import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:provider/provider.dart';
 
-// Main function to run the app
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await Firebase.initializeApp();
   runApp(MyApp());
 }
 
-// Definition of a Task class
 class Task {
   String id;
   String name;
@@ -21,43 +18,42 @@ class Task {
   Task(this.name, {this.isCompleted = false, this.id = ''});
 }
 
-// Definition of TaskList class which extends ChangeNotifier
-class TaskList extends ChangeNotifier {
+class TaskList with ChangeNotifier {
   List<Task> _tasks = [];
   final String userId;
-  final CollectionReference tasksCollection;
+  final DatabaseReference _tasksRef;
 
   TaskList(this.userId)
-      : tasksCollection =
-  FirebaseFirestore.instance.collection('users').doc(userId).collection('tasks');
+      : _tasksRef = FirebaseDatabase.instance.ref('users').child(userId).child('tasks');
 
   List<Task> get tasks => _tasks;
 
   Future<void> fetchTasks() async {
-    final snapshot = await tasksCollection.get();
-    _tasks = snapshot.docs.map((doc) => Task(
-      doc['name'],
-      isCompleted: doc['isCompleted'],
-      id: doc.id,
+    final snapshot = await _tasksRef.once();
+    _tasks = snapshot.snapshot.children.map((task) => Task(
+      task.child('name').value as String,
+      isCompleted: task.child('isCompleted').value as bool,
+      id: task.key?? '',
     )).toList();
     notifyListeners();
   }
 
   Future<void> addTask(String name) async {
     final newTask = Task(name);
-    final docRef = await tasksCollection.add({
+    final taskRef = await _tasksRef.push();
+    newTask.id = taskRef.key?? '';
+    await taskRef.set({
       'name': newTask.name,
       'isCompleted': newTask.isCompleted,
     });
-    newTask.id = docRef.id;
     _tasks.add(newTask);
     notifyListeners();
   }
 
   Future<void> toggleTaskCompletion(int index) async {
     final task = _tasks[index];
-    task.isCompleted = !task.isCompleted;
-    await tasksCollection.doc(task.id).update({
+    task.isCompleted =!task.isCompleted;
+    await _tasksRef.child(task.id).update({
       'isCompleted': task.isCompleted,
     });
     notifyListeners();
@@ -65,13 +61,12 @@ class TaskList extends ChangeNotifier {
 
   Future<void> deleteTask(int index) async {
     final task = _tasks[index];
-    await tasksCollection.doc(task.id).delete();
+    await _tasksRef.child(task.id).remove();
     _tasks.removeAt(index);
     notifyListeners();
   }
 }
 
-// Definition of the main app widget
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -86,7 +81,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Wrapper to show different screens based on authentication status
 class AuthWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -108,7 +102,6 @@ class AuthWrapper extends StatelessWidget {
   }
 }
 
-// Login page widget
 class LoginPage extends StatefulWidget {
   @override
   _LoginPageState createState() => _LoginPageState();
@@ -120,7 +113,7 @@ class _LoginPageState extends State<LoginPage> {
   String _password = '';
 
   void _login() async {
-    if (_formKey.currentState?.validate() ?? false) {
+    if (_formKey.currentState?.validate()?? false) {
       _formKey.currentState?.save();
       try {
         await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -169,7 +162,7 @@ class _LoginPageState extends State<LoginPage> {
                   return null;
                 },
                 onSaved: (value) {
-                  _email = value ?? '';
+                  _email = value?? '';
                 },
               ),
               TextFormField(
@@ -182,7 +175,7 @@ class _LoginPageState extends State<LoginPage> {
                   return null;
                 },
                 onSaved: (value) {
-                  _password = value ?? '';
+                  _password = value?? '';
                 },
               ),
               SizedBox(height: 20),
@@ -202,7 +195,6 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-// Registration page widget
 class RegistrationPage extends StatefulWidget {
   @override
   _RegistrationPageState createState() => _RegistrationPageState();
@@ -215,7 +207,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
   String _confirmPassword = '';
 
   void _register() async {
-    if (_formKey.currentState?.validate() ?? false) {
+    if (_formKey.currentState?.validate()?? false) {
       _formKey.currentState?.save();
       if (_password == _confirmPassword) {
         try {
@@ -262,7 +254,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   return null;
                 },
                 onSaved: (value) {
-                  _email = value ?? '';
+                  _email = value?? '';
                 },
               ),
               TextFormField(
@@ -275,7 +267,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   return null;
                 },
                 onSaved: (value) {
-                  _password = value ?? '';
+                  _password = value?? '';
                 },
               ),
               TextFormField(
@@ -288,7 +280,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   return null;
                 },
                 onSaved: (value) {
-                  _confirmPassword = value ?? '';
+                  _confirmPassword = value?? '';
                 },
               ),
               SizedBox(height: 20),
@@ -304,7 +296,6 @@ class _RegistrationPageState extends State<RegistrationPage> {
   }
 }
 
-// Definition of the screen widget displaying the task list
 class TaskListScreen extends StatelessWidget {
   final TextEditingController _controller = TextEditingController();
 
@@ -327,76 +318,70 @@ class TaskListScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: FutureBuilder(
-        future: taskList.fetchTasks(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
-          return ListView.builder(
-            itemCount: taskList.tasks.length,
-            itemBuilder: (context, index) {
-              final task = taskList.tasks[index];
-              return ListTile(
-                title: Text(task.name),
-                leading: Checkbox(
-                  value: task.isCompleted,
-                  onChanged: (newValue) {
-                    taskList.toggleTaskCompletion(index);
-                  },
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.edit),
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                              title: Text('Edit Task'),
-                              content: TextField(
-                                controller: _controller,
-                                decoration: InputDecoration(
-                                  hintText: 'Edit task name',
-                                ),
-                              ),
-                              actions: <Widget>[
-                                TextButton(
-                                  child: Text('Cancel'),
-                                  onPressed: () {
-                                    Navigator.of(context).pop();
-                                  },
-                                ),
-                                TextButton(
-                                  child: Text('Save'),
-                                  onPressed: () {
-                                    final editedTaskName = _controller.text.trim();
-                                    if (editedTaskName.isNotEmpty) {
-                                      taskList.tasks[index].name = editedTaskName;
-                                      taskList.notifyListeners();
-                                    }
-                                    Navigator.of(context).pop();
-                                    _controller.clear();
-                                  },
-                                ),
-                              ],
-                            );
-                          },
+      body: taskList.tasks.isEmpty
+          ? Center(child: CircularProgressIndicator())
+          : ListView.builder(
+        itemCount: taskList.tasks.length,
+        itemBuilder: (context, index) {
+          final task = taskList.tasks[index];
+          return ListTile(
+            title: Text(task.name),
+            leading: Checkbox(
+              value: task.isCompleted,
+              onChanged: (newValue) {
+                taskList.toggleTaskCompletion(index);
+              },
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.edit),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: Text('Edit Task'),
+                          content: TextField(
+                            controller: _controller,
+                            decoration: InputDecoration(
+                              hintText: 'Edit task name',
+                            ),
+                          ),
+                          actions: <Widget>[
+                            TextButton(
+                              child: Text('Cancel'),
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                            TextButton(
+                              child: Text('Save'),
+                              onPressed: () {
+                                final editedTaskName = _controller.text.trim();
+                                if (editedTaskName.isNotEmpty) {
+                                  taskList.tasks[index].name = editedTaskName;
+                                  taskList.notifyListeners();
+                                }
+                                Navigator.of(context).pop();
+                                _controller.clear();
+                              },
+                            ),
+                          ],
                         );
                       },
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.delete),
-                      onPressed: () {
-                        taskList.deleteTask(index);
-                      },
-                    ),
-                  ],
+                    );
+                  },
                 ),
-              );
-            },
+                IconButton(
+                  icon: Icon(Icons.delete),
+                  onPressed: () {
+                    taskList.deleteTask(index);
+                  },
+                ),
+              ],
+            ),
           );
         },
       ),
