@@ -1,6 +1,13 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
-import '../models/task.dart';
+
+class Task {
+  String id;
+  String name;
+  bool isCompleted;
+
+  Task(this.name, {this.isCompleted = false, this.id = ''});
+}
 
 class TaskList with ChangeNotifier {
   List<Task> _tasks = [];

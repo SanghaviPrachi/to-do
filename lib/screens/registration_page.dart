@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'auth_wrapper.dart';
 
 class RegistrationPage extends StatefulWidget {
   @override
@@ -24,7 +25,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Registration Successful')),
           );
-          Navigator.of(context).pop();
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => AuthWrapper()), // Use AuthWrapper here
+          );
         } catch (e) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Failed to register: ${e.toString()}')),

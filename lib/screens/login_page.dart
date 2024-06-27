@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:internship/screens/task_list_screen.dart';
-import 'registration_page.dart';
+import 'auth_wrapper.dart'; // Add this import
+import 'registration_page.dart'; // Add this import if not already present
 
 class LoginPage extends StatefulWidget {
   @override
@@ -25,7 +25,7 @@ class _LoginPageState extends State<LoginPage> {
           SnackBar(content: Text('Login Successful')),
         );
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => TaskListScreen()),
+          MaterialPageRoute(builder: (context) => AuthWrapper()), // Use AuthWrapper here
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
