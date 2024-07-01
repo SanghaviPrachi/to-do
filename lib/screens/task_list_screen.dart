@@ -21,6 +21,12 @@ class TaskListScreen extends StatelessWidget {
         title: Text('To-Do App'),
         actions: [
           IconButton(
+            icon: Icon(Icons.account_circle),
+            onPressed: () {
+              Navigator.of(context).pushNamed('/profile');
+            },
+          ),
+          IconButton(
             icon: Icon(Icons.logout),
             onPressed: () async {
               await FirebaseAuth.instance.signOut();
