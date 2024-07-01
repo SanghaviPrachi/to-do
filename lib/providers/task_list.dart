@@ -20,12 +20,17 @@ class TaskList with ChangeNotifier {
   List<Task> get tasks => _tasks;
 
   Future<void> fetchTasks() async {
+    print('Fetching tasks for user: $userId');
     final snapshot = await _tasksRef.once();
-    _tasks = snapshot.snapshot.children.map((task) => Task(
-      task.child('name').value as String,
-      isCompleted: task.child('isCompleted').value as bool,
-      id: task.key ?? '',
-    )).toList();
+    _tasks = snapshot.snapshot.children.map((task) {
+      print('Fetched task: ${task.child('name').value}');
+      return Task(
+        task.child('name').value as String,
+        isCompleted: task.child('isCompleted').value as bool,
+        id: task.key ?? '',
+      );
+    }).toList();
+    print('Fetched ${_tasks.length} tasks');
     notifyListeners();
   }
 

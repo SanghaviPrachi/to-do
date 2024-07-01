@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
+import '../providers/task_list.dart';
 import 'task_list_screen.dart';
 import 'login_page.dart';
-import '../providers/task_list.dart'; // Ensure this import is correct
 
 class AuthWrapper extends StatelessWidget {
   @override

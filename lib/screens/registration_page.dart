@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'auth_wrapper.dart';
+import '../widgets/error_dialog.dart';
 
 class RegistrationPage extends StatefulWidget {
   @override
@@ -26,16 +27,18 @@ class _RegistrationPageState extends State<RegistrationPage> {
             SnackBar(content: Text('Registration Successful')),
           );
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => AuthWrapper()), // Use AuthWrapper here
+            MaterialPageRoute(builder: (context) => AuthWrapper()),
           );
         } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to register: ${e.toString()}')),
+          showDialog(
+            context: context,
+            builder: (context) => ErrorDialog(message: e.toString()),
           );
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Passwords do not match')),
+        showDialog(
+          context: context,
+          builder: (context) => ErrorDialog(message: 'Passwords do not match'),
         );
       }
     }
