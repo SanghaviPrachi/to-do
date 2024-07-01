@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import '../providers/task_list.dart';
+import '../models/task.dart'; // Import the Task model
 import '../widgets/task_list_item.dart';
 import 'login_page.dart';
 
@@ -40,13 +41,14 @@ class TaskListScreen extends StatelessWidget {
             return ListView.builder(
               itemCount: taskList.tasks.length,
               itemBuilder: (context, index) {
+                final task = taskList.tasks[index]; // Retrieve the task object
+
                 return TaskListItem(
-                  task: taskList.tasks`[index],
+                  task: task, // Pass the task object to TaskListItem
                   toggleTaskCompletion: () => taskList.toggleTaskCompletion(index),
                   deleteTask: () => taskList.deleteTask(index),
                   editTask: (newName) {
-                    taskList.tasks[index].name = newName;
-                    taskList.notifyListeners();
+                    taskList.editTaskName(index, newName); // Edit task name
                   },
                 );
               },

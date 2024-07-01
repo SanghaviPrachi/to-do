@@ -1,13 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
-
-class Task {
-  String id;
-  String name;
-  bool isCompleted;
-
-  Task(this.name, {this.isCompleted = false, this.id = ''});
-}
+import '../models/task.dart'; // Import the Task model
 
 class TaskList with ChangeNotifier {
   List<Task> _tasks = [];
@@ -51,6 +44,15 @@ class TaskList with ChangeNotifier {
     task.isCompleted = !task.isCompleted;
     await _tasksRef.child(task.id).update({
       'isCompleted': task.isCompleted,
+    });
+    notifyListeners();
+  }
+
+  Future<void> editTaskName(int index, String newName) async {
+    final task = _tasks[index];
+    task.setName(newName); // Update local task name
+    await _tasksRef.child(task.id).update({
+      'name': newName, // Update task name in Firebase
     });
     notifyListeners();
   }
